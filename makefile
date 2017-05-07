@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS= -g -Wall --std=c++11 
-LFLAGS=
+LFLAGS= -ltoxcore -lsodium
 
 EXEC=tox_forwarder
 
