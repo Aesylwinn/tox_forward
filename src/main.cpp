@@ -86,6 +86,10 @@ int main(int argc, const char* argv[])
         tox_iterate(tox, NULL);
     }
 
+    // Exit
+
+    tox_kill(tox);
+
 
     return 0;
 }

@@ -6,7 +6,7 @@ EXEC=tox_forwarder
 
 OBJDIR=obj
 SRCDIR=src
-SRCS=main
+SRCS=main toxwrapper
 
 OBJS=$(patsubst %, $(OBJDIR)/%.o, $(SRCS))
 DEPS=$(patsubst %, $(OBJDIR)/%.d, $(SRCS))
