@@ -7,6 +7,34 @@
 #include <sodium.h>
 #include <vector>
 
+
+// Utility functions
+
+std::string convertToHex(const uint8_t* binary, size_t length)
+{
+    // Setup
+    std::string hex(length * 2 + 1, '0');
+
+    // Convert. sodium_bin2hex returns nullptr on failure.
+    assert(sodium_bin2hex(&hex[0], hex.size(), &binary[0], length));
+    hex.pop_back(); // remove null character
+
+    return hex;
+}
+
+std::vector<uint8_t> convertToBinary(const std::string& hex)
+{
+    // Setup
+    std::vector<uint8_t> binary(hex.size() / 2, 0);
+
+    // Convert. sodium_hex2bin returns 0 on success.
+    assert(!sodium_hex2bin(&binary[0], binary.size(), &hex[0], hex.size(),
+                           nullptr, nullptr, nullptr));
+
+    return binary;
+}
+
+
 /*! @brief Used to map callbacks to specific instances.
  */
 class ToxWrapperRegistry
@@ -53,16 +81,9 @@ void self_connection_status_changed(Tox* tox, TOX_CONNECTION status,
 void friend_request(Tox* tox, const uint8_t* publicKeyBin,
                     const uint8_t* rawMessage, size_t length, void* userData)
 {
-    // Convert from binary to hexadecimal
-    std::string publicKeyHex;
-    publicKeyHex.resize(tox_public_key_size() * 2 + 1); // +1 for null character
-    assert(!sodium_bin2hex(&publicKeyHex[0], publicKeyHex.size(),
-                           &publicKeyBin[0], tox_public_key_size()));
-    publicKeyHex.pop_back(); // remove null character
-
-    // Convert message from uint8_t form
+    std::string publicKeyHex = convertToHex(publicKeyBin,
+                                            tox_public_key_size());
     std::string message(rawMessage, rawMessage+length);
-
     ToxWrapperRegistry::get().lookup(tox)->onFriendRequestRecieved(publicKeyHex,
                                                                    message);
 }
@@ -176,13 +197,8 @@ ToxWrapper::~ToxWrapper()
 bool ToxWrapper::bootstrapNode(const std::string& address, uint16_t port,
                                const std::string& publicKeyHex)
 {
-    // Convert the hexadecimal key to binary
-    std::vector<uint8_t> publicKeyBin(tox_public_key_size(), 0);
-    assert(!sodium_hex2bin(&publicKeyBin[0], tox_public_key_size(),
-                           publicKeyHex.data(), publicKeyHex.size(), nullptr,
-                           nullptr, nullptr));
-
     // Attempt to bootstrap the node
+    std::vector<uint8_t> publicKeyBin = convertToBinary(publicKeyHex);
     return tox_bootstrap(mTox, address.c_str(), port, &publicKeyBin[0],
                          nullptr);
 }
@@ -200,12 +216,7 @@ std::string ToxWrapper::getAddress()
     tox_self_get_address(mTox, &addressBin[0]);
 
     // Convert from binary to hexadecimal
-    std::string addressHex;
-    addressHex.resize(tox_address_size() * 2 + 1); // +1 for null character
-    assert(!sodium_bin2hex(&addressHex[0], addressHex.size(), &addressBin[0],
-                           tox_address_size()));
-    addressHex.pop_back(); // remove null character
-
+    std::string addressHex = convertToHex(&addressBin[0], addressBin.size());
     return addressHex;
 }
 
@@ -251,13 +262,8 @@ bool ToxWrapper::setStatusMessage(const std::string& message)
 uint32_t ToxWrapper::addFriend(const std::string& address,
                                const std::string& message)
 {
-    // Convert hex to binary
-    std::vector<uint8_t> addressBinary(tox_address_size(), 0);
-    assert(!sodium_hex2bin(&addressBinary[0], tox_address_size(),
-                           address.data(), address.size(), nullptr,
-                           nullptr, nullptr));
-
-    // Convert message to uint8_t form
+    // Setup
+    std::vector<uint8_t> addressBinary = convertToBinary(address);
     std::vector<uint8_t> rawMessage(message.begin(), message.end());
 
     // Add friend
@@ -268,10 +274,7 @@ uint32_t ToxWrapper::addFriend(const std::string& address,
 uint32_t ToxWrapper::addFriendNoRequest(const std::string& publicKey)
 {
     // Convert hex to binary
-    std::vector<uint8_t> publicKeyBin(tox_public_key_size(), 0);
-    assert(!sodium_hex2bin(&publicKeyBin[0], tox_public_key_size(),
-                           publicKey.data(), publicKey.size(), nullptr,
-                           nullptr, nullptr));
+    std::vector<uint8_t> publicKeyBin = convertToBinary(publicKey);
 
     // Add friend
     return tox_friend_add_norequest(mTox, &publicKeyBin[0], nullptr);
@@ -280,10 +283,7 @@ uint32_t ToxWrapper::addFriendNoRequest(const std::string& publicKey)
 uint32_t ToxWrapper::getFriendByPublicKey(const std::string& publicKeyHex)
 {
     // Convert hex to binary
-    std::vector<uint8_t> publicKeyBin(tox_public_key_size(), 0);
-    assert(!sodium_hex2bin(&publicKeyBin[0], tox_public_key_size(),
-                           publicKeyHex.data(), publicKeyHex.size(), nullptr,
-                           nullptr, nullptr));
+    std::vector<uint8_t> publicKeyBin = convertToBinary(publicKeyHex);
 
     // Retrieve alias
     return tox_friend_by_public_key(mTox, &publicKeyBin[0], nullptr);
