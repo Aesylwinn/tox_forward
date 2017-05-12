@@ -14,7 +14,7 @@ public:
     /*! @brief Constructor.
      *  @param waitInterval How long to wait before resending a message.
      */
-    Intermediary(double waitInterval=10);
+    Intermediary(const ToxOptionsWrapper& options, double waitInterval=10);
 
     // Does not send a request
     void addAllowedFriend(const std::string& publicKey);

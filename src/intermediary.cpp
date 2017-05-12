@@ -1,8 +1,9 @@
 #include "intermediary.h"
 
 
-Intermediary::Intermediary(double waitInterval)
-    : mWaitInterval(waitInterval)
+Intermediary::Intermediary(const ToxOptionsWrapper& opts, double waitInterval)
+    : ToxWrapper(opts)
+    , mWaitInterval(waitInterval)
 {
 }
 

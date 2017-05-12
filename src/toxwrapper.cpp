@@ -164,25 +164,101 @@ ToxWrapperRegistry& ToxWrapperRegistry::get()
 }
 
 
+// The ToxOptionsWrapper implementation
+
+ToxOptionsWrapper::ToxOptionsWrapper()
+{
+    mOptions = tox_options_new(nullptr);
+    assert(mOptions);
+}
+
+ToxOptionsWrapper::~ToxOptionsWrapper()
+{
+    tox_options_free(mOptions);
+}
+
+void ToxOptionsWrapper::enableIpv6(bool enable)
+{
+    tox_options_set_ipv6_enabled(mOptions, enable);
+}
+
+void ToxOptionsWrapper::enableUdp(bool enable)
+{
+    tox_options_set_udp_enabled(mOptions, enable);
+}
+
+void ToxOptionsWrapper::enableLocalDiscovery(bool enable)
+{
+    tox_options_set_local_discovery_enabled(mOptions, enable);
+}
+
+void ToxOptionsWrapper::setProxyType(ProxyType type)
+{
+    switch (type)
+    {
+    case PT_None:
+        tox_options_set_proxy_type(mOptions, TOX_PROXY_TYPE_NONE);
+        break;
+    case PT_Http:
+        tox_options_set_proxy_type(mOptions, TOX_PROXY_TYPE_HTTP);
+        break;
+    case PT_Socks5:
+        tox_options_set_proxy_type(mOptions, TOX_PROXY_TYPE_SOCKS5);
+        break;
+    }
+}
+
+void ToxOptionsWrapper::setProxyHost(const std::string& address)
+{
+    assert(address.size() < 256);
+    mProxyHost = address;
+    tox_options_set_proxy_host(mOptions, mProxyHost.c_str());
+}
+
+void ToxOptionsWrapper::setProxyPort(uint16_t port)
+{
+    tox_options_set_proxy_port(mOptions, port);
+}
+
+void ToxOptionsWrapper::setPortRange(uint16_t start, uint16_t end)
+{
+    tox_options_set_start_port(mOptions, start);
+    tox_options_set_end_port(mOptions, end);
+}
+
+void ToxOptionsWrapper::enableHolePunching(bool enable)
+{
+    tox_options_set_hole_punching_enabled(mOptions, enable);
+}
+
+void ToxOptionsWrapper::loadSaveData(std::istream& data)
+{
+    // TODO improve the file format
+    data.seekg(0, data.end);
+    size_t length = data.tellg();
+    data.seekg(0, data.beg);
+
+    mSaveData.resize(length, 0);
+    data.read((char*)&mSaveData[0], length);
+
+    tox_options_set_savedata_type(mOptions, TOX_SAVEDATA_TYPE_TOX_SAVE);
+    tox_options_set_savedata_length(mOptions, mSaveData.size());
+    tox_options_set_savedata_data(mOptions, &mSaveData[0], mSaveData.size());
+}
+
+
 // The ToxWrapper implementation
 
-ToxWrapper::ToxWrapper()
+ToxWrapper::ToxWrapper(const ToxOptionsWrapper& options)
     : mTox(nullptr)
     , mStop(false)
 {
-    // Defaults for now
-    Tox_Options* options = tox_options_new(nullptr);
-    assert(options);
-
     // Create tox instance
-    mTox = tox_new(options, nullptr);
+    mTox = tox_new(options.mOptions, nullptr);
     assert(mTox);
 
     // Register
     ToxWrapperRegistry::get().registerWrapper(mTox, this);
-
-    // Clean up resources
-    tox_options_free(options);
 }
 
 ToxWrapper::~ToxWrapper()
@@ -201,6 +277,19 @@ bool ToxWrapper::bootstrapNode(const std::string& address, uint16_t port,
     std::vector<uint8_t> publicKeyBin = convertToBinary(publicKeyHex);
     return tox_bootstrap(mTox, address.c_str(), port, &publicKeyBin[0],
                          nullptr);
+}
+
+void ToxWrapper::save(std::ostream& str)
+{
+    // Read in data from tox
+    size_t length = tox_get_savedata_size(mTox);
+
+    std::vector<uint8_t> data;
+    data.resize(length, 0);
+    tox_get_savedata(mTox, &data[0]);
+
+    // Write to stream
+    str.write((char*)&data[0], length);
 }
 
 bool ToxWrapper::isConnected()
