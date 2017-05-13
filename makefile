@@ -1,12 +1,12 @@
 CC=g++
 CFLAGS= -g -Wall --std=c++11 
-LFLAGS= -ltoxcore -lsodium
+LFLAGS= -ltoxcore -lsodium -lconfig++
 
 EXEC=tox-forwardd
 
 OBJDIR=obj
 SRCDIR=src
-SRCS=main toxwrapper intermediary
+SRCS=main toxwrapper intermediary cmdline
 
 OBJS=$(patsubst %, $(OBJDIR)/%.o, $(SRCS))
 DEPS=$(patsubst %, $(OBJDIR)/%.d, $(SRCS))

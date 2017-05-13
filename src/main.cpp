@@ -1,19 +1,28 @@
 #include <fstream>
 #include <iostream>
+#include <libconfig.h++>
+#include "cmdline.h"
 #include "intermediary.h"
 
 
 using namespace std;
+using namespace libconfig;
 
-int main(int argc, const char* argv[])
+int main(int argc, char* argv[])
 {
     ToxOptionsWrapper options;
     bool newInstance = true;
-    string fileName = "instance.tox";
+    string instFileName = "instance.tox";
+    string cfgFileName;
+    string dataDirName;
     fstream saveFile;
 
+    // Process cmd arguments
+    parseCmdLineArgs(argc, argv, cfgFileName, dataDirName);
+    instFileName.insert(0, dataDirName);
+
     // Use saved data if it exists
-    saveFile.open(fileName.c_str(), ios_base::in);
+    saveFile.open(instFileName.c_str(), ios_base::in);
     if (saveFile.is_open())
     {
         cout << "Found saved data." << endl;
@@ -31,7 +40,7 @@ int main(int argc, const char* argv[])
     if (newInstance)
     {
         cout << "Saving to file." << endl;
-        saveFile.open(fileName.c_str(), ios_base::out);
+        saveFile.open(instFileName.c_str(), ios_base::out);
         forwarder.save(saveFile);
         saveFile.close();
     }
