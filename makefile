@@ -2,7 +2,7 @@ CC=g++
 CFLAGS= -g -Wall --std=c++11 
 LFLAGS= -ltoxcore -lsodium
 
-EXEC=tox_forwarder
+EXEC=tox-forwardd
 
 OBJDIR=obj
 SRCDIR=src
