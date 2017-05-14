@@ -1,2 +1,7 @@
 *.o
 *.d
+
+doc/
+
+tox-forwardd
+*.tox

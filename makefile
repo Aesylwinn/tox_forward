@@ -21,7 +21,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 .PHONY: clean doc test
 clean:
 	$(RM) $(OBJS) $(DEPS) $(EXEC)
-	$(RM) instance.tox
 
 doc:
 	doxygen doxyfile
