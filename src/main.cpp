@@ -46,13 +46,65 @@ int main(int argc, char* argv[])
     }
 
     // Setup
-    forwarder.setName("Forwarder");
-    forwarder.setStatusMessage("Greetings stranger!");
+    Config cfg;
 
-    // Connect to network
-    forwarder.bootstrapNode("biribiri.org", 33445,
-        "F404ABAA1C99A9D37D61AB54898F56793E1DEF8BD46B1038B9D822E8460FAB67");
+    try
+    {
+        cfg.readFile(cfgFileName.c_str());
+    }
+    catch (ParseException& pe)
+    {
+        cout << "parse error: " << pe.getFile() << ":" << pe.getLine() << " ";
+        cout << pe.getError() << endl;
+        exit(1);
+    }
+    catch (FileIOException& fe)
+    {
+        cout << "file error: failed to read " << cfgFileName << endl;
+        exit(1);
+    }
 
+    string name;
+    if (cfg.lookupValue("name", name))
+    {
+        forwarder.setName(name);
+    }
+
+    string statusMessage;
+    if (cfg.lookupValue("status", statusMessage))
+    {
+        forwarder.setStatusMessage(statusMessage);
+    }
+
+    if (cfg.exists("friends"))
+    {
+        Setting& friends = cfg.lookup("friends");
+        for (auto it = friends.begin(); it != friends.end(); ++it)
+        {
+            forwarder.addAllowedFriend(it->c_str());
+        }
+    }
+
+    if (cfg.exists("nodes"))
+    {
+        Setting& nodes = cfg.lookup("nodes");
+        for (auto node = nodes.begin(); node != nodes.end(); ++node)
+        {
+            bool valid = true;
+            string address;
+            unsigned port;
+            string key;
+
+            valid &= node->lookupValue("address", address);
+            valid &= node->lookupValue("port", port);
+            valid &= node->lookupValue("key", key);
+
+            if (valid)
+            {
+                forwarder.bootstrapNode(address, (uint16_t)port, key);
+            }
+        }
+    }
 
     // Print address
     cout << "Address: " << forwarder.getAddress() << endl << endl;
