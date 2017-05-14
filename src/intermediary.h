@@ -7,21 +7,28 @@
 #include <queue>
 #include "toxwrapper.h"
 
+/*! @brief Forwards messages sent by one friend to another.
+ */
 class Intermediary : public ToxWrapper
 {
 public:
 
     /*! @brief Constructor.
+     *  @param options Configurations options for the underlying tox instance.
      *  @param waitInterval How long to wait before resending a message.
      */
     Intermediary(const ToxOptionsWrapper& options, double waitInterval=10);
 
-    // Does not send a request
+    /*! @brief Sets up a friend to recieve forwarded messages, does not send a
+     *         request.
+     *  @param publicKey The public key of the friend.
+     */
     void addAllowedFriend(const std::string& publicKey);
 
     void onFriendConnectionStatusChanged(uint32_t alias, bool online) override;
 
-    void onMessageSentSuccess(uint32_t friendAlias, uint32_t messageId) override;
+    void onMessageSentSuccess(uint32_t friendAlias,
+                              uint32_t messageId) override;
 
     void onMessageRecieved(uint32_t friendAlias, const std::string& message,
                            bool actionType) override;
