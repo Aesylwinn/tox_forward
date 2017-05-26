@@ -389,6 +389,15 @@ bool ToxWrapper::deleteFriend(uint32_t alias)
     return tox_friend_delete(mTox, alias, nullptr);
 }
 
+std::string ToxWrapper::getFriendPublicKey(uint32_t alias)
+{
+    // Retrieve key
+    std::vector<uint8_t> rawKey(tox_public_key_size(), 0);
+    tox_friend_get_public_key(mTox, alias, &rawKey[0], nullptr);
+
+    return convertToHex(&rawKey[0], rawKey.size());
+}
+
 bool ToxWrapper::isFriendConnected(uint32_t alias)
 {
     // Check if the friend is online.

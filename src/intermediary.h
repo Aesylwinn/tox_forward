@@ -71,7 +71,44 @@ private:
         /*! @brief The time stamp of the last message sent to this friend.
          */
         std::time_t lastMessageTimeStamp;
+
+        /*! @brief The user defined aliases for different friends. The name
+         *         is the key.
+         */
+        std::map<std::string, std::string> aliases;
+
+        /*! @brief The used defined aliases for different friends. The public
+         *         key is the key.
+         */
+        std::map<std::string, std::string> reverseAliases;
     };
+
+    /*! @brief Determines if a message is a command. A command is any message
+     *         starting with a '!' followed by a specific keyword. The current
+     *         keywords can be queried using !help.
+     *  @param message The recieved message.
+     */
+    bool messageIsCommand(const std::string& message) const;
+
+    /*! @brief Processes a command.
+     *  @param from The alias of the sender.
+     *  @param message The entire command string.
+     */
+    void processCommand(uint32_t from, const std::string& message);
+
+    /*! @brief Sends a regular message from one user to another.
+     *  @param from The alias of the sender.
+     *  @param to The alias of the reciever.
+     *  @param message The message to send.
+     */
+    void sendStandardMessage(uint32_t from, uint32_t to,
+                             const std::string& message);
+
+    /*! @brief Sends a server message to a user.
+     *  @param to The alias of the reciever.
+     *  @param message The message to send.
+     */
+    void sendServerMessage(uint32_t to, const std::string& message);
 
     // The amount of time in seconds to wait before resending a message.
     double mWaitInterval;
@@ -80,6 +117,8 @@ private:
     std::map<uint32_t, Friend> mFriends;
     // Contains a list of the friends that need processing
     std::set<uint32_t> mWorkQueue;
+
+    std::vector<std::string> mValidCommands;
 };
 
 #endif

@@ -198,6 +198,11 @@ public:
     bool deleteFriend(uint32_t alias);
 
 
+    /*! @brief Returns the public key of a specific friend.
+     *  @param alias The alias for the friend.
+     */
+    std::string getFriendPublicKey(uint32_t alias);
+
     /*! @brief Returns whether or not a specific friend is online.
      *  @param alias
      *  @return True if the friend is connected.

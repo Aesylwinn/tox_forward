@@ -1,10 +1,16 @@
 #include "intermediary.h"
+#include <array>
+#include <cassert>
 
 
 Intermediary::Intermediary(const ToxOptionsWrapper& opts, double waitInterval)
     : ToxWrapper(opts)
     , mWaitInterval(waitInterval)
 {
+    // Add default allowed commands
+    mValidCommands.push_back("alias");
+    mValidCommands.push_back("forward");
+    mValidCommands.push_back("help");
 }
 
 void Intermediary::addAllowedFriend(const std::string& publicKey)
@@ -55,36 +61,15 @@ void Intermediary::onMessageSentSuccess(uint32_t alias, uint32_t messageId)
 void Intermediary::onMessageRecieved(uint32_t alias, const std::string& message,
                                      bool actionType)
 {
-    Friend& sender = mFriends[alias];
-
     // Process the message based on the type.
-    // TODO add a random component to the the commands to make it more difficult
-    // to crack
-    if (message.substr(0, 9) == "_forward:")
+    if (messageIsCommand(message))
     {
-        // A new reciever is being designated.
-        std::string recieverKey = message.substr(9); // TODO limit size
-        sender.currentReciever = getFriendByPublicKey(recieverKey);
+        processCommand(alias, message);
     }
-    else if (friendExists(sender.currentReciever))
+    else
     {
-        // A regular message is being sent.
-        Friend& reciever = mFriends[sender.currentReciever];
-
-        if (reciever.lastSender != sender.alias)
-        {
-            // Alert client they are getting a new sender.
-            reciever.unrecievedMessages.push("_sender:");// + getFriendPublicKey(sender.alias));
-            reciever.lastSender = sender.alias;
-        }
-
-        reciever.unrecievedMessages.push(message);
-
-        // Add the sender to the work queue if online
-        if (isFriendConnected(reciever.alias))
-        {
-            mWorkQueue.insert(reciever.alias);
-        }
+        // TODO escape message if it could be mistaken for a command.
+        sendStandardMessage(alias, mFriends[alias].currentReciever, message);
     }
 }
 
@@ -110,5 +95,172 @@ void Intermediary::onCoreUpdate()
             sendMessage(f.alias, f.unrecievedMessages.front());
             f.lastMessageTimeStamp = now;
         }
+    }
+}
+
+std::string readArg(const std::string& str, size_t& start)
+{
+    assert (start < str.size());
+
+    // Read the next arg and setup for the one that folows
+    std::string arg;
+    size_t end = str.find_first_of(' ', start);
+    if (end != std::string::npos)
+    {
+        // Don't include the space
+        arg = str.substr(start, end - start);
+        start = end + 1;
+    }
+    else
+    {
+        arg = str.substr(start);
+        start = str.size();
+    }
+
+    return arg;
+}
+
+bool Intermediary::messageIsCommand(const std::string& message) const
+{
+    // Basic preliminary test
+    if (message.size() < 2 || message[0] != '!')
+    {
+        return false;
+    }
+
+    // Determine if the command is valid
+    size_t start = 1;
+    std::string command = readArg(message, start);
+    for (auto it = mValidCommands.begin(); it != mValidCommands.end(); ++it)
+    {
+        if (command == *it)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void Intermediary::processCommand(uint32_t from, const std::string& message)
+{
+    Friend& f = mFriends[from];
+
+    // Process command
+    size_t start = 1;
+    std::string command = readArg(message, start);
+
+    if (command == "alias")
+    {
+        std::string name = readArg(message, start);
+        std::string publicKey = readArg(message, start);
+
+        // Validate
+        if (name.empty() || publicKey.empty())
+        {
+            sendServerMessage(from, "Use !help to see the description for "
+                                    "how to use the alias command.");
+        }
+        else if (!friendExists(getFriendByPublicKey(publicKey)))
+        {
+            sendServerMessage(from, "Unknown tox id passed to the alias "
+                                    "command.");
+        }
+        else
+        {
+            // Valid
+            f.aliases[name] = publicKey;
+            f.reverseAliases[publicKey] = name;
+        }
+    }
+    else if (command == "forward")
+    {
+        std::string recipient = readArg(message, start);
+        uint32_t reciever = UINT32_MAX;
+
+        // Figure out who will recieve the message
+        if (f.aliases.find(recipient) != f.aliases.end())
+        {
+            reciever = getFriendByPublicKey(f.aliases[recipient]);
+        }
+        else
+        {
+            reciever = getFriendByPublicKey(recipient);
+        }
+
+        // Process if valid
+        if (!friendExists(reciever))
+        {
+            sendServerMessage(from, "Unknown alias or tox id sent to the "
+                                    "forward command.");
+        }
+        else
+        {
+            f.currentReciever = reciever;
+        }
+    }
+    else if (command == "help")
+    {
+        sendServerMessage(from, "Commands: alias, forward, help\n"
+                                "!alias <nickname> <tox id> - associates a "
+                                "name with a tox id if the server knows them\n"
+                                "!forward <alias> - will forward messages to "
+                                "an assigned alias\n"
+                                "!forward <tox id> - will forward messages to "
+                                "a tox id if the server knows them\n"
+                                "!help - displays some helpful information");
+    }
+    else
+    {
+        assert(false);
+    }
+}
+
+void Intermediary::sendStandardMessage(uint32_t from, uint32_t to,
+                                       const std::string& message)
+{
+    if (friendExists(to))
+    {
+        // Regular message
+
+        Friend& sender = mFriends[from];
+        Friend& reciever = mFriends[to];
+
+        // Alert client to who is sending
+        if (reciever.lastSender != sender.alias)
+        {
+            // Retrieve user defined name if available, otherwise tox id
+            std::string name = getFriendPublicKey(sender.alias);
+            if (reciever.reverseAliases.find(name) !=
+                    reciever.reverseAliases.end())
+            {
+                name = reciever.reverseAliases[name];
+            }
+
+            reciever.unrecievedMessages.push("!sender " + name);
+        }
+
+        reciever.unrecievedMessages.push(message);
+
+        // Send the message if they are online.
+        if (isFriendConnected(reciever.alias))
+        {
+            mWorkQueue.insert(reciever.alias);
+        }
+    }
+    else
+    {
+        sendServerMessage(from, "No reciever specified");
+    }
+}
+
+void Intermediary::sendServerMessage(uint32_t to, const std::string& message)
+{
+    Friend& reciever = mFriends[to];
+    reciever.unrecievedMessages.push("!server " + message);
+
+    if (isFriendConnected(reciever.alias))
+    {
+        mWorkQueue.insert(reciever.alias);
     }
 }
