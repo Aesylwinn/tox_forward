@@ -168,53 +168,69 @@ void Intermediary::processCommand(uint32_t from, const std::string& message)
 
     if (command == "alias")
     {
-        std::string name = readArg(message, start);
-        ToxKey publicKey = ToxKey(ToxKey::Public, readArg(message, start));
+        try
+        {
+            std::string name = readArg(message, start);
+            ToxKey publicKey = ToxKey(ToxKey::Public, readArg(message, start));
 
-        // Validate
-        if (name.empty())
-        {
-            sendServerMessage(from, "Use !help to see the description for "
-                                    "how to use the alias command.");
+            // Validate
+            if (name.empty())
+            {
+                sendServerMessage(from, "Use !help to see the description for "
+                                        "how to use the alias command.");
+            }
+            else if (!friendExists(getFriendByPublicKey(publicKey)))
+            {
+                sendServerMessage(from, "Unknown tox id passed to the alias "
+                                        "command.");
+            }
+            else
+            {
+
+	        // Store mappings
+                f.aliases[name] = publicKey;
+                f.reverseAliases[publicKey] = name;
+            }
         }
-        else if (!friendExists(getFriendByPublicKey(publicKey)))
-        {
-            sendServerMessage(from, "Unknown tox id passed to the alias "
+        catch (const ToxKey::InvalidSize& e)
+	{
+            sendServerMessage(from, "Invalid tox id passed to the alias "
                                     "command.");
-        }
-        else
-        {
-
-	    // Store mappings
-            f.aliases[name] = publicKey;
-            f.reverseAliases[publicKey] = name;
         }
     }
     else if (command == "forward")
     {
-        std::string recipient = readArg(message, start);
-        uint32_t reciever = UINT32_MAX;
+        try
+        {
+            std::string recipient = readArg(message, start);
+            uint32_t reciever = UINT32_MAX;
 
-        // Figure out who will recieve the message
-        if (f.aliases.find(recipient) != f.aliases.end())
-        {
-            reciever = getFriendByPublicKey(f.aliases[recipient]);
-        }
-        else
-        {
-            ToxKey publicKey(ToxKey::Public, recipient);
-            reciever = getFriendByPublicKey(publicKey);
-        }
+            // Figure out who will recieve the message
+            if (f.aliases.find(recipient) != f.aliases.end())
+            {
+                reciever = getFriendByPublicKey(f.aliases[recipient]);
+            }
+            else
+            {
+                ToxKey publicKey(ToxKey::Public, recipient);
+                reciever = getFriendByPublicKey(publicKey);
+            }
 
-        // Process if valid
-        if (!friendExists(reciever))
-        {
-            sendServerMessage(from, "Unknown alias or tox id sent to the "
-                                    "forward command.");
+            // Process if valid
+            if (!friendExists(reciever))
+            {
+                sendServerMessage(from, "Unknown alias or tox id sent to the "
+                                        "forward command.");
+            }
+            else
+            {
+                f.currentReciever = reciever;
+            }
         }
-        else
+        catch (const ToxKey::InvalidSize& e)
         {
-            f.currentReciever = reciever;
+            sendServerMessage(from, "Invalid tox id passed to the forward "
+                                    "command.");
         }
     }
     else if (command == "help")

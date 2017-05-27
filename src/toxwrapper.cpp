@@ -29,7 +29,8 @@ std::vector<uint8_t> convertToBinary(const std::string& hex)
     std::vector<uint8_t> binary(hex.size() / 2, 0);
 
     // Convert. sodium_hex2bin returns 0 on success.
-    assert(!sodium_hex2bin(&binary[0], binary.size(), &hex[0], hex.size(),
+    size_t hexSize = hex.size() - (hex.size() % 2);
+    assert(!sodium_hex2bin(&binary[0], binary.size(), &hex[0], hexSize,
                            nullptr, nullptr, nullptr));
 
     return binary;
@@ -339,6 +340,7 @@ void ToxKey::validate()
 
     if (expected > given)
     {
+        mType = None;
         throw InvalidSize(given, expected);
     }
     else

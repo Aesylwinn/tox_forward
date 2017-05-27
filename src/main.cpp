@@ -81,7 +81,15 @@ int main(int argc, char* argv[])
         Setting& friends = cfg.lookup("friends");
         for (auto it = friends.begin(); it != friends.end(); ++it)
         {
-            forwarder.addAllowedFriend(ToxKey(ToxKey::Public, it->c_str()));
+            try
+            {
+                forwarder.addAllowedFriend(ToxKey(ToxKey::Public, it->c_str()));
+            }
+            catch(const ToxKey::InvalidSize &e)
+            {
+                cout << "Warning! Key in friends too small: " << it->c_str();
+                cout << endl;
+            }
         }
     }
 
@@ -101,14 +109,22 @@ int main(int argc, char* argv[])
 
             if (valid)
             {
-                forwarder.bootstrapNode(address, (uint16_t)port,
-                                        ToxKey(ToxKey::Public, key));
+                try
+                {
+                    forwarder.bootstrapNode(address, (uint16_t)port,
+                                            ToxKey(ToxKey::Public, key));
+                }
+                catch (const ToxKey::InvalidSize &e)
+                {
+                    cout << "Warning! Key in nodes too small: " << key;
+		    cout << endl;
+                }
             }
         }
     }
 
     // Print address
-    cout << "Address: " << forwarder.getAddress().getHex() << endl << endl;
+    cout << "Address: " << forwarder.getAddress().getHex() << endl;
 
     // Main loop
     forwarder.run();
