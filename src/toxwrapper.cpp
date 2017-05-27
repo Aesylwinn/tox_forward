@@ -270,11 +270,68 @@ ToxWrapper::~ToxWrapper()
     ToxWrapperRegistry::get().unregisterWrapper(mTox);
 }
 
+uint32_t ToxWrapper::getPublicKeySize() const
+{
+    return tox_public_key_size();
+}
+
+uint32_t ToxWrapper::getSecretKeySize() const
+{
+    return tox_secret_key_size();
+}
+
+uint32_t ToxWrapper::getAddressSize() const
+{
+    return tox_address_size();
+}
+
+uint32_t ToxWrapper::getHashSize() const
+{
+    return tox_hash_length();
+}
+
+uint32_t ToxWrapper::getFileIDSize() const
+{
+    return tox_file_id_length();
+}
+
+uint32_t ToxWrapper::getMaxNameSize() const
+{
+    return tox_max_name_length();
+}
+
+uint32_t ToxWrapper::getMaxStatusMessageSize() const
+{
+    return tox_max_status_message_length();
+}
+
+uint32_t ToxWrapper::getMaxFriendRequestSize() const
+{
+    return tox_max_friend_request_length();
+}
+
+uint32_t ToxWrapper::getMaxMessageSize() const
+{
+    return tox_max_message_length();
+}
+
+uint32_t ToxWrapper::getMaxCustomPacketSize() const
+{
+    return tox_max_custom_packet_size();
+}
+
+uint32_t ToxWrapper::getMaxFileNameSize() const
+{
+    return tox_max_filename_length();
+}
+
 bool ToxWrapper::bootstrapNode(const std::string& address, uint16_t port,
                                const std::string& publicKeyHex)
 {
     // Attempt to bootstrap the node
     std::vector<uint8_t> publicKeyBin = convertToBinary(publicKeyHex);
+    assert(publicKeyBin.size() >= tox_public_key_size());
+
     return tox_bootstrap(mTox, address.c_str(), port, &publicKeyBin[0],
                          nullptr);
 }
@@ -353,6 +410,8 @@ uint32_t ToxWrapper::addFriend(const std::string& address,
 {
     // Setup
     std::vector<uint8_t> addressBinary = convertToBinary(address);
+    assert(addressBinary.size() == tox_address_size());
+
     std::vector<uint8_t> rawMessage(message.begin(), message.end());
 
     // Add friend
@@ -364,6 +423,7 @@ uint32_t ToxWrapper::addFriendNoRequest(const std::string& publicKey)
 {
     // Convert hex to binary
     std::vector<uint8_t> publicKeyBin = convertToBinary(publicKey);
+    assert(publicKeyBin.size() >= tox_public_key_size());
 
     // Add friend
     return tox_friend_add_norequest(mTox, &publicKeyBin[0], nullptr);
@@ -373,6 +433,7 @@ uint32_t ToxWrapper::getFriendByPublicKey(const std::string& publicKeyHex)
 {
     // Convert hex to binary
     std::vector<uint8_t> publicKeyBin = convertToBinary(publicKeyHex);
+    assert(publicKeyBin.size() >= tox_public_key_size());
 
     // Retrieve alias
     return tox_friend_by_public_key(mTox, &publicKeyBin[0], nullptr);

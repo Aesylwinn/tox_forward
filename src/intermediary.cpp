@@ -1,4 +1,5 @@
 #include "intermediary.h"
+#include <algorithm>
 #include <array>
 #include <cassert>
 
@@ -58,6 +59,18 @@ void Intermediary::onMessageSentSuccess(uint32_t alias, uint32_t messageId)
     }
 }
 
+std::string escapeMessage(const std::string& original)
+{
+    if (!original.empty() && original[0] == '!')
+    {
+        return "!" + original;
+    }
+    else
+    {
+        return original;
+    }
+}
+
 void Intermediary::onMessageRecieved(uint32_t alias, const std::string& message,
                                      bool actionType)
 {
@@ -68,8 +81,8 @@ void Intermediary::onMessageRecieved(uint32_t alias, const std::string& message,
     }
     else
     {
-        // TODO escape message if it could be mistaken for a command.
-        sendStandardMessage(alias, mFriends[alias].currentReciever, message);
+        sendStandardMessage(alias, mFriends[alias].currentReciever,
+			    escapeMessage(message));
     }
 }
 
@@ -100,7 +113,10 @@ void Intermediary::onCoreUpdate()
 
 std::string readArg(const std::string& str, size_t& start)
 {
-    assert (start < str.size());
+    if (start >= str.size())
+    {
+        return "";
+    }
 
     // Read the next arg and setup for the one that folows
     std::string arg;
@@ -168,7 +184,14 @@ void Intermediary::processCommand(uint32_t from, const std::string& message)
         }
         else
         {
-            // Valid
+            // Convert to lower case
+            std::transform(publicKey.begin(), publicKey.end(),
+			   publicKey.begin(), ::tolower);
+
+            // Make sure to only store the public key
+            publicKey.resize(2 * getPublicKeySize(), '0');
+
+	    // Store mappings
             f.aliases[name] = publicKey;
             f.reverseAliases[publicKey] = name;
         }
@@ -212,6 +235,7 @@ void Intermediary::processCommand(uint32_t from, const std::string& message)
     }
     else
     {
+        // Unhandled command.
         assert(false);
     }
 }
@@ -237,6 +261,7 @@ void Intermediary::sendStandardMessage(uint32_t from, uint32_t to,
                 name = reciever.reverseAliases[name];
             }
 
+	    reciever.lastSender = sender.alias;
             reciever.unrecievedMessages.push("!sender " + name);
         }
 

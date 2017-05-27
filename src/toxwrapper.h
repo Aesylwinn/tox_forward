@@ -117,6 +117,52 @@ public:
     ToxWrapper& operator=(const ToxWrapper&) = delete;
 
 
+    /*! @brief Returns the number of bytes used to store a public key.
+     */
+    uint32_t getPublicKeySize() const;
+
+    /*! @brief Returns the number of bytes used to store a secret key.
+     */
+    uint32_t getSecretKeySize() const;
+
+    /*! @brief Returns the number of bytes used to store an address.
+     */
+    uint32_t getAddressSize() const;
+
+    /*! @brief Returns the number of bytes used to store a hash.
+     */
+    uint32_t getHashSize() const;
+
+    /*! @brief Returns the number of bytes used to store file id.
+     */
+    uint32_t getFileIDSize() const;
+
+    /*! @brief Returns the maximum size of a name in bytes.
+     */
+    uint32_t getMaxNameSize() const;
+
+    /*! @brief Returns the maximum size of a status message in bytes.
+     */
+    uint32_t getMaxStatusMessageSize() const;
+
+    /*! @brief Returns the maximum size of a friend request message in bytes.
+     */
+    uint32_t getMaxFriendRequestSize() const;
+
+    /*! @brief Returns the maximum size of a message in bytes.
+     */
+    uint32_t getMaxMessageSize() const;
+
+    /*! @brief Returns the maximum size of a custom packet in bytes.
+     */
+    uint32_t getMaxCustomPacketSize() const;
+
+    /*! @brief Returns the maximum size of a file name for file transfers in
+     *         bytes.
+     */
+    uint32_t getMaxFileNameSize() const;
+
+
     /*! @brief Attemps to connect to a node, see the tox documentation.
      *  @param address The ip adress or domain name of the node.
      *  @param port The port the node is listening on.
