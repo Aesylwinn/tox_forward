@@ -23,7 +23,7 @@ public:
      *         request.
      *  @param publicKey The public key of the friend.
      */
-    void addAllowedFriend(const std::string& publicKey);
+    void addAllowedFriend(const ToxKey& publicKey);
 
     void onFriendConnectionStatusChanged(uint32_t alias, bool online) override;
 
@@ -75,12 +75,12 @@ private:
         /*! @brief The user defined aliases for different friends. The name
          *         is the key.
          */
-        std::map<std::string, std::string> aliases;
+        std::map<std::string, ToxKey> aliases;
 
         /*! @brief The used defined aliases for different friends. The public
          *         key is the key.
          */
-        std::map<std::string, std::string> reverseAliases;
+        std::map<ToxKey, std::string> reverseAliases;
     };
 
     /*! @brief Determines if a message is a command. A command is any message

@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
         Setting& friends = cfg.lookup("friends");
         for (auto it = friends.begin(); it != friends.end(); ++it)
         {
-            forwarder.addAllowedFriend(it->c_str());
+            forwarder.addAllowedFriend(ToxKey(ToxKey::Public, it->c_str()));
         }
     }
 
@@ -101,13 +101,14 @@ int main(int argc, char* argv[])
 
             if (valid)
             {
-                forwarder.bootstrapNode(address, (uint16_t)port, key);
+                forwarder.bootstrapNode(address, (uint16_t)port,
+                                        ToxKey(ToxKey::Public, key));
             }
         }
     }
 
     // Print address
-    cout << "Address: " << forwarder.getAddress() << endl << endl;
+    cout << "Address: " << forwarder.getAddress().getHex() << endl << endl;
 
     // Main loop
     forwarder.run();

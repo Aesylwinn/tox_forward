@@ -95,6 +95,105 @@ private:
 };
 
 
+/*! @brief Can be used to store the various types of keys used in tox.
+ */
+class ToxKey
+{
+public:
+
+    /*! @brief The type of key. Imposes a size constraint.
+     */
+    enum Type
+    {
+        None,
+        Address,
+        Public,
+        Secret
+    };
+
+    /*! @brief Thrown when the key size is invalid for the type.
+     */
+    class InvalidSize
+    {
+    public:
+        /*! @brief Constructor.
+         *  @param given The given length of the key.
+         *  @param expected The expected length of the key.
+         */
+        InvalidSize(size_t given, size_t expected);
+
+        /*! @brief The error message in a human readable format.
+         */
+        std::string getMessage() const;
+
+        /*! @brief The size of the key given.
+         */
+        size_t getGivenSize() const;
+
+        /*! @brief The expected size of the key.
+         */
+        size_t getExpectedSize() const;
+
+    private:
+
+        std::string mMessage;
+        size_t mGiven, mExpected;
+    };
+
+    /*! @brief Default constructor.
+     */
+    ToxKey();
+
+    /*! @brief Constructs the key from a hex string.
+     *  @param type The type of key.
+     *  @param hex The key in hexadecimal.
+     */
+    ToxKey(Type type, const std::string& hex);
+
+    /*! @brief Constructs the key from a byte array.
+     *  @param type The type of key.
+     *  @param bin The key in binary.
+     */
+    ToxKey(Type type, const std::vector<uint8_t>& bin);
+
+    /*! @brief Retrieves the key type.
+     */
+    Type getType() const;
+
+    /*! @brief Retrieves the hexadecimal version of the key.
+     */
+    const std::string& getHex() const;
+
+    /*! @brief Retrieves the binary version of the key.
+     */
+    const std::vector<uint8_t>& getBin() const;
+
+    bool operator<(const ToxKey& other) const;
+
+private:
+
+    void validate();
+
+    Type mType;
+    std::string mHex;
+    std::vector<uint8_t> mBin;
+};
+
+namespace std
+{
+    template<> struct hash<ToxKey>
+    {
+        typedef ToxKey argument_type;
+        typedef size_t result_type;
+
+        result_type operator()(argument_type const& key) const
+        {
+            return hash<string>{}(key.getHex());
+        }
+    };
+}
+
+
 /*! @brief Wraps a tox instance. This is based largely off of the tox api, look
  *         there for more documentation.
  */
@@ -166,11 +265,11 @@ public:
     /*! @brief Attemps to connect to a node, see the tox documentation.
      *  @param address The ip adress or domain name of the node.
      *  @param port The port the node is listening on.
-     *  @param publicKey The public key of the node in hexadecimal.
+     *  @param publicKey The public key of the node.
      *  @return True on success.
      */
     bool bootstrapNode(const std::string& address, uint16_t port,
-                       const std::string& publicKey);
+                       const ToxKey& publicKey);
 
     /*! @brief Saves the current instance data so it can be recreated later.
      *  @param str The stream to save the instance to.
@@ -186,7 +285,7 @@ public:
     /*! @brief Returns the Tox ID of this instance.
      *  @return The Tox ID in hexadecimal.
      */
-    std::string getAddress();
+    ToxKey getAddress();
 
     /*! @brief Returns the name of the Tox instance.
      *  @return The name in utf8.
@@ -212,23 +311,23 @@ public:
 
 
     /*! @brief Adds a friend, sending them a request.
-     *  @param address The Tox ID of the friend in hexadecimal.
+     *  @param address The Tox ID of the friend.
      *  @param message The message to send.
      *  @return The alias for the friend if successful, otherwise UINT32_MAX.
      */
-    uint32_t addFriend(const std::string& address, const std::string& message);
+    uint32_t addFriend(const ToxKey& address, const std::string& message);
 
     /*! @brief Adds the friend without sending a request.
-     *  @param publicKey The public key of the friend in hexadecimal.
+     *  @param publicKey The public key of the friend.
      *  @return The alias for the friend if successful, otherwise UINT32_MAX.
      */
-    uint32_t addFriendNoRequest(const std::string& publicKey);
+    uint32_t addFriendNoRequest(const ToxKey& publicKey);
 
     /*! @brief Returns the alias for a specific friend.
-     *  @param publicKey The public key of the friend in hexadecimal.
+     *  @param publicKey The public key of the friend.
      *  @return The alias for the friend if succussful, otherwise UINT32_MAX.
      */
-    uint32_t getFriendByPublicKey(const std::string& publicKey);
+    uint32_t getFriendByPublicKey(const ToxKey& publicKey);
 
     /*! @brief Returns whether an alias has been mapped to a friend. Can be used
      *         for validation.
@@ -247,7 +346,7 @@ public:
     /*! @brief Returns the public key of a specific friend.
      *  @param alias The alias for the friend.
      */
-    std::string getFriendPublicKey(uint32_t alias);
+    ToxKey getFriendPublicKey(uint32_t alias);
 
     /*! @brief Returns whether or not a specific friend is online.
      *  @param alias
@@ -272,10 +371,10 @@ public:
     virtual void onConnectionStatusChanged(bool online);
 
     /*! @brief Called when a friend request is recieved.
-     *  @param publicKey The public key of the sender in hexadecimal.
+     *  @param publicKey The public key of the sender.
      *  @param message The message sent with the request.
      */
-    virtual void onFriendRequestRecieved(const std::string& publicKey,
+    virtual void onFriendRequestRecieved(const ToxKey& publicKey,
                                          const std::string& message);
 
     /*! @brief Called when a friend's name is changed.

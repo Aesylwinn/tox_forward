@@ -1,5 +1,5 @@
 #include "intermediary.h"
-#include <algorithm>
+
 #include <array>
 #include <cassert>
 
@@ -14,7 +14,7 @@ Intermediary::Intermediary(const ToxOptionsWrapper& opts, double waitInterval)
     mValidCommands.push_back("help");
 }
 
-void Intermediary::addAllowedFriend(const std::string& publicKey)
+void Intermediary::addAllowedFriend(const ToxKey& publicKey)
 {
     uint32_t alias = addFriendNoRequest(publicKey);
 
@@ -169,10 +169,10 @@ void Intermediary::processCommand(uint32_t from, const std::string& message)
     if (command == "alias")
     {
         std::string name = readArg(message, start);
-        std::string publicKey = readArg(message, start);
+        ToxKey publicKey = ToxKey(ToxKey::Public, readArg(message, start));
 
         // Validate
-        if (name.empty() || publicKey.empty())
+        if (name.empty())
         {
             sendServerMessage(from, "Use !help to see the description for "
                                     "how to use the alias command.");
@@ -184,12 +184,6 @@ void Intermediary::processCommand(uint32_t from, const std::string& message)
         }
         else
         {
-            // Convert to lower case
-            std::transform(publicKey.begin(), publicKey.end(),
-			   publicKey.begin(), ::tolower);
-
-            // Make sure to only store the public key
-            publicKey.resize(2 * getPublicKeySize(), '0');
 
 	    // Store mappings
             f.aliases[name] = publicKey;
@@ -208,7 +202,8 @@ void Intermediary::processCommand(uint32_t from, const std::string& message)
         }
         else
         {
-            reciever = getFriendByPublicKey(recipient);
+            ToxKey publicKey(ToxKey::Public, recipient);
+            reciever = getFriendByPublicKey(publicKey);
         }
 
         // Process if valid
@@ -253,12 +248,18 @@ void Intermediary::sendStandardMessage(uint32_t from, uint32_t to,
         // Alert client to who is sending
         if (reciever.lastSender != sender.alias)
         {
+            ToxKey publicKey = getFriendPublicKey(sender.alias);
+
             // Retrieve user defined name if available, otherwise tox id
-            std::string name = getFriendPublicKey(sender.alias);
-            if (reciever.reverseAliases.find(name) !=
+            std::string name;
+            if (reciever.reverseAliases.find(publicKey) !=
                     reciever.reverseAliases.end())
             {
-                name = reciever.reverseAliases[name];
+                name = reciever.reverseAliases[publicKey];
+            }
+            else
+            {
+                name = publicKey.getHex();
             }
 
 	    reciever.lastSender = sender.alias;

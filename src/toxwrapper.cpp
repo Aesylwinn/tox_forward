@@ -1,5 +1,6 @@
 #include "toxwrapper.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <map>
@@ -81,10 +82,10 @@ void self_connection_status_changed(Tox* tox, TOX_CONNECTION status,
 void friend_request(Tox* tox, const uint8_t* publicKeyBin,
                     const uint8_t* rawMessage, size_t length, void* userData)
 {
-    std::string publicKeyHex = convertToHex(publicKeyBin,
-                                            tox_public_key_size());
+    ToxKey publicKey(ToxKey::Public, std::vector<uint8_t>(publicKeyBin,
+                     publicKeyBin+length));
     std::string message(rawMessage, rawMessage+length);
-    ToxWrapperRegistry::get().lookup(tox)->onFriendRequestRecieved(publicKeyHex,
+    ToxWrapperRegistry::get().lookup(tox)->onFriendRequestRecieved(publicKey,
                                                                    message);
 }
 
@@ -247,6 +248,108 @@ void ToxOptionsWrapper::loadSaveData(std::istream& data)
 }
 
 
+// The ToxKey implementation
+
+ToxKey::InvalidSize::InvalidSize(size_t given, size_t expected)
+    : mGiven(given)
+    , mExpected(expected)
+{
+    mMessage = "Invalid key size. Expected key of size " +
+               std::to_string(expected) + " but given key of size " +
+               std::to_string(given) + ".";
+}
+
+std::string ToxKey::InvalidSize::getMessage() const
+{
+    return mMessage;
+}
+
+size_t ToxKey::InvalidSize::getGivenSize() const
+{
+    return mGiven;
+}
+
+size_t ToxKey::InvalidSize::getExpectedSize() const
+{
+    return mExpected;
+}
+
+ToxKey::ToxKey()
+    : mType(None)
+{
+}
+
+ToxKey::ToxKey(Type type, const std::string& hex)
+    : mType(type)
+    , mHex(hex)
+    , mBin(convertToBinary(hex))
+{
+    std::transform(mHex.begin(), mHex.end(), mHex.begin(), ::tolower);
+    validate();
+}
+
+ToxKey::ToxKey(Type type, const std::vector<uint8_t>& bin)
+    : mType(type)
+    , mHex(convertToHex(bin.data(), bin.size()))
+    , mBin(bin)
+{
+    std::transform(mHex.begin(), mHex.end(), mHex.begin(), ::tolower);
+    validate();
+}
+
+ToxKey::Type ToxKey::getType() const
+{
+    return mType;
+}
+
+const std::string& ToxKey::getHex() const
+{
+    return mHex;
+}
+
+const std::vector<uint8_t>& ToxKey::getBin() const
+{
+    return mBin;
+}
+
+bool ToxKey::operator<(const ToxKey& other) const
+{
+    return (*this).mBin < other.mBin;
+}
+
+void ToxKey::validate()
+{
+    size_t given = mBin.size();
+    size_t expected = 0;
+
+    switch (mType)
+    {
+    case Address:
+        expected = tox_address_size();
+        break;
+    case Public:
+        expected = tox_public_key_size();
+        break;
+    case Secret:
+        expected = tox_secret_key_size();
+        break;
+    case None:
+        expected = given;
+    }
+
+    if (expected > given)
+    {
+        throw InvalidSize(given, expected);
+    }
+    else
+    {
+        // Trim off extra characters
+        mBin.resize(expected);
+        mHex.resize(expected * 2);
+    }
+}
+
+
 // The ToxWrapper implementation
 
 ToxWrapper::ToxWrapper(const ToxOptionsWrapper& options)
@@ -326,14 +429,12 @@ uint32_t ToxWrapper::getMaxFileNameSize() const
 }
 
 bool ToxWrapper::bootstrapNode(const std::string& address, uint16_t port,
-                               const std::string& publicKeyHex)
+                               const ToxKey& publicKey)
 {
     // Attempt to bootstrap the node
-    std::vector<uint8_t> publicKeyBin = convertToBinary(publicKeyHex);
-    assert(publicKeyBin.size() >= tox_public_key_size());
-
-    return tox_bootstrap(mTox, address.c_str(), port, &publicKeyBin[0],
-                         nullptr);
+    assert(publicKey.getType() == ToxKey::Public);
+    return tox_bootstrap(mTox, address.c_str(), port,
+                         publicKey.getBin().data(), nullptr);
 }
 
 void ToxWrapper::save(std::ostream& str)
@@ -355,15 +456,13 @@ bool ToxWrapper::isConnected()
     return (status != TOX_CONNECTION_NONE);
 }
 
-std::string ToxWrapper::getAddress()
+ToxKey ToxWrapper::getAddress()
 {
     // Retrieve the binary address
     std::vector<uint8_t> addressBin(tox_address_size(), 0);
     tox_self_get_address(mTox, &addressBin[0]);
 
-    // Convert from binary to hexadecimal
-    std::string addressHex = convertToHex(&addressBin[0], addressBin.size());
-    return addressHex;
+    return ToxKey(ToxKey::Address, addressBin);
 }
 
 std::string ToxWrapper::getName()
@@ -405,38 +504,31 @@ bool ToxWrapper::setStatusMessage(const std::string& message)
                                        nullptr);
 }
 
-uint32_t ToxWrapper::addFriend(const std::string& address,
+uint32_t ToxWrapper::addFriend(const ToxKey& address,
                                const std::string& message)
 {
     // Setup
-    std::vector<uint8_t> addressBinary = convertToBinary(address);
-    assert(addressBinary.size() == tox_address_size());
-
+    assert (address.getType() == ToxKey::Address);
     std::vector<uint8_t> rawMessage(message.begin(), message.end());
 
     // Add friend
-    return tox_friend_add(mTox, &addressBinary[0], &rawMessage[0],
+    return tox_friend_add(mTox, address.getBin().data(), &rawMessage[0],
                           rawMessage.size(), nullptr);
 }
 
-uint32_t ToxWrapper::addFriendNoRequest(const std::string& publicKey)
+uint32_t ToxWrapper::addFriendNoRequest(const ToxKey& publicKey)
 {
-    // Convert hex to binary
-    std::vector<uint8_t> publicKeyBin = convertToBinary(publicKey);
-    assert(publicKeyBin.size() >= tox_public_key_size());
-
     // Add friend
-    return tox_friend_add_norequest(mTox, &publicKeyBin[0], nullptr);
+    assert(publicKey.getType() == ToxKey::Public);
+    return tox_friend_add_norequest(mTox, publicKey.getBin().data(), nullptr);
 }
 
-uint32_t ToxWrapper::getFriendByPublicKey(const std::string& publicKeyHex)
+uint32_t ToxWrapper::getFriendByPublicKey(const ToxKey& publicKey)
 {
-    // Convert hex to binary
-    std::vector<uint8_t> publicKeyBin = convertToBinary(publicKeyHex);
-    assert(publicKeyBin.size() >= tox_public_key_size());
-
     // Retrieve alias
-    return tox_friend_by_public_key(mTox, &publicKeyBin[0], nullptr);
+    assert(publicKey.getType() == ToxKey::Public);
+    return tox_friend_by_public_key(mTox, publicKey.getBin().data(),
+                                    nullptr);
 }
 
 bool ToxWrapper::friendExists(uint32_t alias)
@@ -450,13 +542,13 @@ bool ToxWrapper::deleteFriend(uint32_t alias)
     return tox_friend_delete(mTox, alias, nullptr);
 }
 
-std::string ToxWrapper::getFriendPublicKey(uint32_t alias)
+ToxKey ToxWrapper::getFriendPublicKey(uint32_t alias)
 {
     // Retrieve key
     std::vector<uint8_t> rawKey(tox_public_key_size(), 0);
     tox_friend_get_public_key(mTox, alias, &rawKey[0], nullptr);
 
-    return convertToHex(&rawKey[0], rawKey.size());
+    return ToxKey(ToxKey::Public, rawKey);
 }
 
 bool ToxWrapper::isFriendConnected(uint32_t alias)
@@ -487,7 +579,7 @@ void ToxWrapper::onConnectionStatusChanged(bool online)
 {
 }
 
-void ToxWrapper::onFriendRequestRecieved(const std::string& publicKey,
+void ToxWrapper::onFriendRequestRecieved(const ToxKey& publicKey,
                                          const std::string& message)
 {
 }
